@@ -28,6 +28,7 @@
 #include <ctype.h>
 
 #include "global.h"
+#include "output.h"
 
 /* ---------------------------------------- PROCESSORS
 */
@@ -49,7 +50,7 @@ static const char *dasm_usage =
 "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
 "GNU General Public License (Version 3) for more details.\n"
 "\n"
-"usage: dasm -c cpu [-o address] file\n";
+"usage: dasm -c cpu [-o address] [-a] [-m] file\n";
 
 
 /* ---------------------------------------- TYPES
@@ -102,7 +103,10 @@ int main(int argc, char *argv[])
     int f;
     int n;
 
-    for(f = 1; f < argc && argv[f][0] == '-'; f += 2)
+    OutputOption(eShowAddress, 1);
+    OutputOption(eShowMemory, 1);
+
+    for(f = 1; f < argc && argv[f][0] == '-'; f++)
     {
         switch(argv[f][1])
         {
@@ -114,10 +118,19 @@ int main(int argc, char *argv[])
                         cpu = cpu_table + n;
                     }
                 }
+                f++;
                 break;
 
-             case 'o':
-                address = (word)strtol(argv[f+1], NULL, 0);
+            case 'o':
+                address = (word)strtol(argv[++f], NULL, 0);
+                break;
+
+            case 'a':
+                OutputOption(eShowAddress, 0);
+                break;
+
+            case 'm':
+                OutputOption(eShowMemory, 0);
                 break;
 
             default:
@@ -134,6 +147,11 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr,"%s\n", dasm_usage);
         exit(EXIT_FAILURE);
+    }
+
+    while(!feof(fp))
+    {
+        address = cpu->disassemble(fp, address);
     }
 
     return EXIT_SUCCESS;
