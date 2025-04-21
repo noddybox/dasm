@@ -4,8 +4,7 @@
 
 ## Usage
 
-Pass the CPU type and file to disassemble and optionally the start address
-of the file.
+Pass the CPU type and file to disassemble and optional arguments.
 
 `dasm -c cpu_type [-o origin] [-a] [-m]  binary_file`
 
