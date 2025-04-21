@@ -35,8 +35,8 @@ typedef enum
     eShowMemory,
 } output_option;
 
-void Output(word address, int address_length, memory_t *mem, const char *opcode,
-            const char *arguments, ...);
+void Output(word address, int address_length, memory_t *mem,
+            const char *format, ...);
 
 void OutputOption(output_option opt, int setting);
 

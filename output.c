@@ -31,10 +31,11 @@
 
 static int opt[2];
 
-void Output(word address, int address_length, memory_t *mem, const char *opcode,
-            const char *arguments, ...)
+void Output(word address, int address_length, memory_t *mem,
+            const char *format, ...)
 {
     va_list va;
+    int printed;
 
     if (opt[eShowAddress])
     {
@@ -46,15 +47,21 @@ void Output(word address, int address_length, memory_t *mem, const char *opcode,
         printf("%8.8s", "");
     }
 
-    printf("%-8.8s", opcode);
-
-    va_start(va, arguments);
-    vprintf(arguments, va);
+    va_start(va, format);
+    printed = vprintf(format, va);
     va_end(va);
 
     if (opt[eShowMemory])
     {
-        printf(" ; %s", MemoryToString(mem));
+        if (printed >= 42)
+        {
+            printf(" ; %s", MemoryToString(mem));
+        }
+        else
+        {
+            printf("%*.*s; %s", 42 - printed, 42 - printed, "",
+                                MemoryToString(mem));
+        }
     }
 
     printf("\n");

@@ -41,7 +41,8 @@ $(TARGET): $(OBJECTS)
 clean:
 	rm -f $(TARGET) $(TARGET).exe $(OBJECTS) core *.core
 
-dasm.o: dasm.c global.h z80.h
-input.o: input.c input.h global.h
-output.o: output.c output.h global.h
-z80.o: z80.c z80.h global.h output.h
+dasm.o: dasm.c global.h output.h memory.h z80.h
+input.o: input.c input.h global.h memory.h
+memory.o: memory.c memory.h global.h
+output.o: output.c output.h global.h memory.h
+z80.o: z80.c z80.h global.h output.h memory.h input.h

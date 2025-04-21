@@ -39,7 +39,7 @@ typedef enum
     eNone
 } IXYShift;
 
-static const char *reg[] =
+static const char *r[] =
 {
     "b",
     "c",
@@ -51,31 +51,7 @@ static const char *reg[] =
     "a"
 };
 
-static const char *reg_ix[] =
-{
-    "b",
-    "c",
-    "d",
-    "e",
-    "ixh",
-    "ixl",
-    "(hl)",     /* Will be replaced by ix+d */
-    "a"
-};
-
-static const char *reg_iy[] =
-{
-    "b",
-    "c",
-    "d",
-    "e",
-    "iyh",
-    "iyl",
-    "(hl)",     /* Will be replace by iy+d */
-    "a"
-};
-
-static const char *reg_pair1[] =
+static const char *rp[] =
 {
     "bc",
     "de",
@@ -83,23 +59,7 @@ static const char *reg_pair1[] =
     "sp"
 };
 
-static const char *reg_pair1_ix[] =
-{
-    "bc",
-    "de",
-    "ix",
-    "sp"
-};
-
-static const char *reg_pair1_iy[] =
-{
-    "bc",
-    "de",
-    "iy",
-    "sp"
-};
-
-static const char *reg_pair2[] =
+static const char *rp2[] =
 {
     "bc",
     "de",
@@ -107,23 +67,7 @@ static const char *reg_pair2[] =
     "af"
 };
 
-static const char *reg_pair2_ix[] =
-{
-    "bc",
-    "de",
-    "ix",
-    "af"
-};
-
-static const char *reg_pair2_iy[] =
-{
-    "bc",
-    "de",
-    "iy",
-    "af"
-};
-
-static const char *cond[] =
+static const char *cc[] =
 {
     "nz",
     "z",
@@ -144,7 +88,7 @@ static const char *alu[][2] =
     {"and", ""},
     {"xor", ""},
     {"or", ""},
-    {"cp" ""},
+    {"cp", ""},
 };
 
 static const char *rot[] =
@@ -171,7 +115,7 @@ static const char *im[] =
     "2"
 };
 
-static const char *blit[][4] = 
+static const char *bli[][4] = 
 {
     {"ldi", "cpi", "ini", "outi"},
     {"ldd", "cpd", "ind", "outd"},
@@ -180,7 +124,7 @@ static const char *blit[][4] =
 };
 
 static const char *GetIndex(const char *reg, IXYShift ixy_shift,
-                            FILE *fp, word *address, memory_t *mem)
+                            FILE *input, word *address, memory_t *mem)
 {
     static char buff[128];
 
@@ -190,9 +134,17 @@ static const char *GetIndex(const char *reg, IXYShift ixy_shift,
             if (strcmp(reg, "(hl)") == 0)
             {
                 snprintf(buff, sizeof buff, "(ix%+d)",
-                                GetRelative(fp, address, mem));
+                                GetRelative(input, address, mem));
 
                 return buff;
+            }
+            else if (strcmp(reg, "h") == 0)
+            {
+                return "ixh";
+            }
+            else if (strcmp(reg, "l") == 0)
+            {
+                return "ixl";
             }
             else
             {
@@ -203,9 +155,17 @@ static const char *GetIndex(const char *reg, IXYShift ixy_shift,
             if (strcmp(reg, "(hl)") == 0)
             {
                 snprintf(buff, sizeof buff, "(iy%+d)",
-                                GetRelative(fp, address, mem));
+                                GetRelative(input, address, mem));
 
                 return buff;
+            }
+            else if (strcmp(reg, "h") == 0)
+            {
+                return "iyh";
+            }
+            else if (strcmp(reg, "l") == 0)
+            {
+                return "iyl";
             }
             else
             {
@@ -214,6 +174,319 @@ static const char *GetIndex(const char *reg, IXYShift ixy_shift,
 
         default:
             return reg;
+    }
+}
+
+static const char *GetRegPair(const char *reg, IXYShift ixy_shift)
+{
+    switch(ixy_shift)
+    {
+        case eIX:
+            if (strcmp(reg, "hl") == 0)
+            {
+                return "ix";
+            }
+            else
+            {
+                return reg;
+            }
+
+        case eIY:
+            if (strcmp(reg, "hl") == 0)
+            {
+                return "iy";
+            }
+            else
+            {
+                return reg;
+            }
+
+        default:
+            return reg;
+    }
+}
+
+static void DecodeSingleByteWithIXY(word x, word y, word z, word p, word q,
+                                    IXYShift ixy_shift, FILE *input,
+                                    memory_t *mem, word start_address,
+                                    word *address)
+{
+    if (x == 0)
+    {
+        if (z == 0)
+        {
+            switch(y)
+            {
+                case 0:
+                    Output(start_address, 4, mem, "nop");
+                    break;
+                case 1:
+                    Output(start_address, 4, mem, "ex af,af'");
+                    break;
+                case 2:
+                    Output(start_address, 4, mem, "djnz $%4.4x",
+                            GetRelativeAddress(input, address, mem));
+                    break;
+                case 3:
+                    Output(start_address, 4, mem, "jr $%4.4x",
+                            GetRelativeAddress(input, address, mem));
+                    break;
+                default:
+                    Output(start_address, 4, mem, "jr %s,$%4.4x",
+                                cc[y - 4],
+                                GetRelativeAddress(input, address, mem));
+                    break;
+            }
+        }
+
+        if (z == 1)
+        {
+            if (q == 0)
+            {
+                Output(start_address, 4, mem, "ld %s,$%4.4x",
+                       GetIndex(r[p], ixy_shift, input, address, mem),
+                       GetLSBWord(input, address, mem));
+            }
+
+            if (q == 1)
+            {
+                Output(start_address, 4, mem, "add %s,%s",
+                                GetRegPair("hl", ixy_shift),
+                                GetRegPair(rp[p], ixy_shift));
+            }
+        }
+
+        if (z == 2)
+        {
+            if (q == 0)
+            {
+                switch(p)
+                {
+                    case 0:
+                        Output(start_address, 4, mem, "ld (bc),a");
+                        break;
+                    case 1:
+                        Output(start_address, 4, mem, "ld (de),a");
+                        break;
+                    case 2:
+                        Output(start_address, 4, mem, "ld ($%4.4x),%s",
+                                        GetLSBWord(input, address, mem),
+                                        GetRegPair("hl", ixy_shift));
+                        break;
+                    case 3:
+                        Output(start_address, 4, mem, "ld ($%4.4x),a",
+                                        GetLSBWord(input, address, mem));
+                        break;
+                }
+            }
+
+            if (q == 1)
+            {
+                switch(p)
+                {
+                    case 0:
+                        Output(start_address, 4, mem, "ld a,(bc)");
+                        break;
+                    case 1:
+                        Output(start_address, 4, mem, "ld a,(de)");
+                        break;
+                    case 2:
+                        Output(start_address, 4, mem, "ld %s,($%4.4x)",
+                                        GetRegPair("hl", ixy_shift),
+                                        GetLSBWord(input, address, mem));
+                                            
+                        break;
+                    case 3:
+                        Output(start_address, 4, mem, "ld a,($%4.4x)",
+                                        GetLSBWord(input, address, mem));
+                        break;
+                }
+            }
+        }
+
+        if (z == 3)
+        {
+            const char *op;
+
+            if (q == 0)
+            {
+                op = "inc";
+            }
+            else
+            {
+                op = "dec";
+            }
+
+            Output(start_address, 4, mem, "%s %s",
+                        op, GetRegPair(rp[p], ixy_shift));
+        }
+
+        if (z == 4)
+        {
+            Output(start_address, 4, mem, "inc %s",
+                    GetIndex(r[y], ixy_shift, input, address, mem));
+        }
+
+        if (z == 5)
+        {
+            Output(start_address, 4, mem, "dec %s", 
+                    GetIndex(r[y], ixy_shift, input, address, mem));
+        }
+
+        if (z == 6)
+        {
+            const char *index =
+                    GetIndex(r[y], ixy_shift, input, address, mem);
+
+            Output(start_address, 4, mem, "ld %s,$%2.2x",
+                    index, GetByte(input, address, mem));
+        }
+
+        if (z == 7)
+        {
+            const char *op[] =
+            {
+                "rlca", "rrca", "rla", "rra", "daa", "cpl", "scf", "ccf"
+            };
+
+            Output(start_address, 4, mem, "%s", op[y]);
+        }
+    }
+
+    if (x == 1)
+    {
+        if (z==6 && y == 6)
+        {
+            Output(start_address, 4, mem, "%s", "halt");
+        }
+        else
+        {
+            Output(start_address, 4, mem, "ld %s,%s",
+                    GetIndex(r[y], ixy_shift, input, address, mem),
+                    GetIndex(r[z], ixy_shift, input, address, mem));
+        }
+    }
+
+    if (x == 2)
+    {
+        Output(start_address, 4, mem, "%s %s%s%s",
+                alu[y][0],
+                alu[y][1][0] ? alu[y][1] : "",
+                alu[y][1][0] ? "," : "",
+                GetIndex(r[z], ixy_shift, input, address, mem));
+    }
+
+    if (x == 3)
+    {
+        if (z == 0)
+        {
+            Output(start_address, 4, mem, "ret %s", cc[y]);
+        }
+
+        if (z == 1)
+        {
+            if (q == 0)
+            {
+                Output(start_address, 4, mem, "pop %s",
+                            GetRegPair(rp2[p], ixy_shift));
+            }
+
+            if (q == 1)
+            {
+                switch(p)
+                {
+                    case 0:
+                        Output(start_address, 4, mem, "ret");
+                        break;
+                    case 1:
+                        Output(start_address, 4, mem, "exx");
+                        break;
+                    case 2:
+                        Output(start_address, 4, mem, "jp %s",
+                                        GetRegPair("hl", ixy_shift));
+                        break;
+                    case 3:
+                        Output(start_address, 4, mem, "ld sp,%s",
+                                        GetRegPair("hl", ixy_shift));
+                        break;
+                }
+            }
+        }
+
+        if (z == 2)
+        {
+            Output(start_address, 4, mem, "jp %s,$%4.4x",
+                            cc[y],
+                            GetLSBWord(input, address, mem));
+        }
+
+        if (z == 3)
+        {
+            switch(y)
+            {
+                case 0:
+                    Output(start_address, 4, mem, "jp $%4.4x",
+                            GetLSBWord(input, address, mem));
+                    break;
+                case 2:
+                    Output(start_address, 4, mem, "out ($%2.2x),a",
+                                    GetByte(input, address, mem));
+                    break;
+                case 3:
+                    Output(start_address, 4, mem, "in a,($%2.2x)",
+                                    GetByte(input, address, mem));
+                    break;
+                case 4:
+                    Output(start_address, 4, mem, "ex (sp),%s",
+                                    GetRegPair("hl", ixy_shift));
+                    break;
+                case 5:
+                    Output(start_address, 4, mem, "ex de,hl");
+                    break;
+                case 6:
+                    Output(start_address, 4, mem, "di");
+                    break;
+                case 7:
+                    Output(start_address, 4, mem, "ei");
+                    break;
+            }
+        }
+
+        if (z == 4)
+        {
+            Output(start_address, 4, mem, "call %s,$%4.4x)",
+                            cc[y],
+                            GetLSBWord(input, address, mem));
+        }
+
+        if (z == 5)
+        {
+            if (q == 0)
+            {
+                Output(start_address, 4, mem, "push %s",
+                                GetRegPair(rp2[p], ixy_shift));
+            }
+
+            if (q == 1 && p == 0)
+            {
+                Output(start_address, 4, mem, "call $%4.4x",
+                        GetLSBWord(input, address, mem));
+            }
+        }
+
+        if (z == 6)
+        {
+            Output(start_address, 4, mem, "%s %s%s$%2.2x",
+                    alu[y][0],
+                    alu[y][1][0] ? alu[y][1] : "",
+                    alu[y][1][0] ? "," : "",
+                    GetByte(input, address, mem));
+        }
+
+        if (z == 7)
+        {
+            Output(start_address, 4, mem, "rst $%2.2x", y * 8);
+        }
     }
 }
 
@@ -277,169 +550,8 @@ get_opcode:
 
     if (!cb_shift && !ed_shift)
     {
-        const char **r, **rp, **rp2, *hl;
-
-        switch(ixy_shift)
-        {
-            case eNone:
-                r = reg;
-                rp = reg_pair1;
-                rp2 = reg_pair2;
-                hl = "hl";
-                break;
-            case eIX:
-                r = reg_ix;
-                rp = reg_pair1_ix;
-                rp2 = reg_pair2_ix;
-                hl = "ix";
-                break;
-            case eIY:
-                r = reg_iy;
-                rp = reg_pair1_iy;
-                rp2 = reg_pair2_iy;
-                hl = "iy";
-                break;
-        }
-
-        if (x == 0)
-        {
-            if (z == 0)
-            {
-                switch(y)
-                {
-                    case 0:
-                        Output(start_address, 4, &mem, "nop", "");
-                        break;
-                    case 1:
-                        Output(start_address, 4, &mem, "ex", "af,af'");
-                        break;
-                    case 2:
-                        Output(start_address, 4, &mem, "djnz",
-                               "$%4.4x",
-                                GetRelativeAddress(input, &address, &mem));
-                        break;
-                    case 3:
-                        Output(start_address, 4, &mem, "jr",
-                               "$%4.4x",
-                                GetRelativeAddress(input, &address, &mem));
-                        break;
-                    default:
-                        Output(start_address, 4, &mem, "jr",
-                               "%s,$%4.4x", cond[y - 4],
-                                    GetRelativeAddress(input, &address, &mem));
-                        break;
-                }
-            }
-
-            if (z == 1)
-            {
-                if (q == 0)
-                {
-                    Output(start_address, 4, &mem, "ld", "%s,$%4.4x",
-                           rp[p], GetLSBWord(input, &address, &mem));
-                }
-
-                if (q == 1)
-                {
-                    Output(start_address, 4, &mem, "add", "%s,%s", hl, rp[p]);
-                }
-            }
-
-            if (z == 2)
-            {
-                if (q == 0)
-                {
-                    switch(p)
-                    {
-                        case 0:
-                            Output(start_address, 4, &mem, "ld", "(bc),a");
-                            break;
-                        case 1:
-                            Output(start_address, 4, &mem, "ld", "(de),a");
-                            break;
-                        case 2:
-                            Output(start_address, 4, &mem, "ld", "($%4.4x),%s",
-                                            GetLSBWord(input, &address, &mem),
-                                            hl);
-                            break;
-                        case 3:
-                            Output(start_address, 4, &mem, "ld", "($%4.4x),a",
-                                            GetLSBWord(input, &address, &mem));
-                            break;
-                    }
-                }
-
-                if (q == 1)
-                {
-                    switch(p)
-                    {
-                        case 0:
-                            Output(start_address, 4, &mem, "ld", "a,(bc)");
-                            break;
-                        case 1:
-                            Output(start_address, 4, &mem, "ld", "a,(de)");
-                            break;
-                        case 2:
-                            Output(start_address, 4, &mem, "ld", "%s,($%4.4x)",
-                                            hl,
-                                            GetLSBWord(input, &address, &mem));
-                                                
-                            break;
-                        case 3:
-                            Output(start_address, 4, &mem, "ld", "a,($%4.4x)",
-                                            GetLSBWord(input, &address, &mem));
-                            break;
-                    }
-                }
-            }
-
-            if (z == 3)
-            {
-                const char *op;
-
-                if (q == 9)
-                {
-                    op = "inc";
-                }
-                else
-                {
-                    op = "dec";
-                }
-
-                Output(start_address, 4, &mem, op, "%s", rp[p]);
-            }
-
-            if (z == 4)
-            {
-                Output(start_address, 4, &mem, "inc", "%s",
-                        GetIndex(r[y], ixy_shift, input, &address, &mem));
-            }
-
-            if (z == 5)
-            {
-                Output(start_address, 4, &mem, "dec", "%s", 
-                        GetIndex(r[y], ixy_shift, input, &address, &mem));
-            }
-
-            if (z == 6)
-            {
-                const char *index =
-                        GetIndex(r[y], ixy_shift, input, &address, &mem);
-
-                Output(start_address, 4, &mem, "ld", "%s,$%2.2x",
-                        index, GetByte(input, &address, &mem));
-            }
-
-            if (z == 7)
-            {
-                const char *op[] =
-                {
-                    "rlca", "rrca", "rla", "rra", "daa", "cpl", "scf", "ccf"
-                };
-
-                Output(start_address, 4, &mem, op[y], "");
-            }
-        }
+        DecodeSingleByteWithIXY(x, y, z, p, q, ixy_shift, input,
+                                &mem, start_address, &address);
     }
 
     return address;
