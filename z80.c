@@ -490,6 +490,196 @@ static void DecodeSingleByteWithIXY(word x, word y, word z, word p, word q,
     }
 }
 
+static void DecodeCBByte(word x, word y, word z, word p, word q,
+                         IXYShift ixy_shift, relative offset, FILE *input,
+                         memory_t *mem, word start_address,
+                         word *address)
+{
+    if (ixy_shift == eNone)
+    {
+        if (x == 0)
+        {
+            Output(start_address, 4, mem, "%s %s", rot[y], r[z]);
+        }
+
+        if (x == 1)
+        {
+            Output(start_address, 4, mem, "bit %u,%s", y, r[z]);
+        }
+
+        if (x == 2)
+        {
+            Output(start_address, 4, mem, "res %u,%s", y, r[z]);
+        }
+
+        if (x == 3)
+        {
+            Output(start_address, 4, mem, "set %u,%s", y, r[z]);
+        }
+    }
+    else
+    {
+        const char *ixiy = ixy_shift == eIX ? "ix" : "iy";
+
+        if (x == 0)
+        {
+            if (z == 6)
+            {
+                Output(start_address, 4, mem, "%s (%s%+d)",
+                                            rot[y], ixiy, (int)offset);
+            }
+            else
+            {
+                Output(start_address, 4, mem, "%s (%s%+d),%s",
+                                            rot[y], ixiy, (int)offset, r[z]);
+            }
+        }
+
+        if (x == 1)
+        {
+            Output(start_address, 4, mem, "bit %u,(%s%+d)",
+                                                y, ixiy, (int)offset);
+        }
+
+        if (x == 2)
+        {
+            if (z == 6)
+            {
+                Output(start_address, 4, mem, "res %u,(%s%+d)",
+                                            y, ixiy, (int)offset);
+            }
+            else
+            {
+                Output(start_address, 4, mem, "res %u,(%s%+d),%s",
+                                            y, ixiy, (int)offset, r[z]);
+            }
+        }
+
+        if (x == 3)
+        {
+            if (z == 6)
+            {
+                Output(start_address, 4, mem, "set %u,(%s%+d)",
+                                            y, ixiy, (int)offset);
+            }
+            else
+            {
+                Output(start_address, 4, mem, "set %u,(%s%+d),%s",
+                                            y, ixiy, (int)offset, r[z]);
+            }
+        }
+    }
+}
+
+static void DecodeEDByte(word x, word y, word z, word p, word q,
+                         IXYShift ixy_shift, FILE *input,
+                         memory_t *mem, word start_address,
+                         word *address)
+{
+    if (x == 0 || x == 3)
+    {
+        Output(start_address, 4, mem, "illegal opcode");
+    }
+
+    if (x == 1)
+    {
+        if (z == 0)
+        {
+            if (y == 6)
+            {
+                Output(start_address, 4, mem, "in (c)");
+            }
+            else
+            {
+                Output(start_address, 4, mem, "in %s,(c)", r[y]);
+            }
+        }
+
+        if (z == 1)
+        {
+            if (y == 6)
+            {
+                Output(start_address, 4, mem, "out (c)");
+            }
+            else
+            {
+                Output(start_address, 4, mem, "out %s,(c)", r[y]);
+            }
+        }
+
+        if (z == 2)
+        {
+            if (q == 0)
+            {
+                Output(start_address, 4, mem, "sbc hl,%s",rp[p]);
+            }
+            else
+            {
+                Output(start_address, 4, mem, "adc hl,%s",rp[p]);
+            }
+        }
+
+        if (z == 3)
+        {
+            if (q == 0)
+            {
+                Output(start_address, 4, mem, "ld ($%4.4x),%s",
+                            GetLSBWord(input, address, mem), rp[p]);
+            }
+            else
+            {
+                Output(start_address, 4, mem, "ld $s,($%4.4x)",
+                            rp[p], GetLSBWord(input, address, mem));
+            }
+        }
+
+        if (z == 4)
+        {
+            Output(start_address, 4, mem, "neg");
+        }
+
+        if (z == 5)
+        {
+            if (y == 1)
+            {
+                Output(start_address, 4, mem, "reti");
+            }
+            else
+            {
+                Output(start_address, 4, mem, "retn");
+            }
+        }
+
+        if (z == 6)
+        {
+            Output(start_address, 4, mem, "im %s", im[y]);
+        }
+
+        if (z == 7)
+        {
+            const char *op[] =
+            {
+                "ld i,a", "ld r,a", "ld a,i", "ld a,r",
+                "rrd", "rld", "nop", "nop"
+            };
+
+            Output(start_address, 4, mem, "%s", op[y]);
+        }
+    }
+
+    if (x == 2)
+    {
+        if (z <= 3 && y >= 4)
+        {
+            Output(start_address, 4, mem, "%s", bli[y - 4][z]);
+        }
+        else
+        {
+            Output(start_address, 4, mem, "illegal opcode");
+        }
+    }
+}
+
 word Z80_Disassemble(FILE *input, word address)
 {
     memory_t mem = INIT_MEMORY;
@@ -505,6 +695,11 @@ word Z80_Disassemble(FILE *input, word address)
 
 get_opcode:
     opcode = GetByte(input, &address, &mem);
+
+    if (feof(input))
+    {
+        return start_address;
+    }
 
     /* Loop through for shifts
     */
@@ -552,6 +747,16 @@ get_opcode:
     {
         DecodeSingleByteWithIXY(x, y, z, p, q, ixy_shift, input,
                                 &mem, start_address, &address);
+    }
+    else if (cb_shift)
+    {
+        DecodeCBByte(x, y, z, p, q, ixy_shift, offset, input,
+                     &mem, start_address, &address);
+    }
+    else if (ed_shift)
+    {
+        DecodeEDByte(x, y, z, p, q, ixy_shift, input,
+                     &mem, start_address, &address);
     }
 
     return address;
