@@ -243,8 +243,10 @@ static void DecodeSingleByteWithIXY(word x, word y, word z, word p, word q,
         {
             if (q == 0)
             {
+                const char *regpair = GetRegPair(rp[p], ixy_shift);
+
                 Output(start_address, 4, mem, "ld %s,$%4.4x",
-                       GetIndex(r[p], ixy_shift, input, address, mem),
+                       regpair,
                        GetLSBWord(input, address, mem));
             }
 
@@ -362,8 +364,10 @@ static void DecodeSingleByteWithIXY(word x, word y, word z, word p, word q,
         else
         {
             Output(start_address, 4, mem, "ld %s,%s",
-                    GetIndex(r[y], ixy_shift, input, address, mem),
-                    GetIndex(r[z], ixy_shift, input, address, mem));
+                    GetIndex(r[y], z == 6 ? eNone : ixy_shift,
+                             input, address, mem),
+                    GetIndex(r[z], y == 6 ? eNone : ixy_shift,
+                             input, address, mem));
         }
     }
 
@@ -402,7 +406,7 @@ static void DecodeSingleByteWithIXY(word x, word y, word z, word p, word q,
                         Output(start_address, 4, mem, "exx");
                         break;
                     case 2:
-                        Output(start_address, 4, mem, "jp %s",
+                        Output(start_address, 4, mem, "jp (%s)",
                                         GetRegPair("hl", ixy_shift));
                         break;
                     case 3:
@@ -454,7 +458,7 @@ static void DecodeSingleByteWithIXY(word x, word y, word z, word p, word q,
 
         if (z == 4)
         {
-            Output(start_address, 4, mem, "call %s,$%4.4x)",
+            Output(start_address, 4, mem, "call %s,$%4.4x",
                             cc[y],
                             GetLSBWord(input, address, mem));
         }
@@ -491,7 +495,7 @@ static void DecodeSingleByteWithIXY(word x, word y, word z, word p, word q,
 }
 
 static void DecodeCBByte(word x, word y, word z, word p, word q,
-                         IXYShift ixy_shift, relative offset, FILE *input,
+                         IXYShift ixy_shift, int offset, FILE *input,
                          memory_t *mem, word start_address,
                          word *address)
 {
@@ -526,19 +530,18 @@ static void DecodeCBByte(word x, word y, word z, word p, word q,
             if (z == 6)
             {
                 Output(start_address, 4, mem, "%s (%s%+d)",
-                                            rot[y], ixiy, (int)offset);
+                                            rot[y], ixiy, offset);
             }
             else
             {
                 Output(start_address, 4, mem, "%s (%s%+d),%s",
-                                            rot[y], ixiy, (int)offset, r[z]);
+                                            rot[y], ixiy, offset, r[z]);
             }
         }
 
         if (x == 1)
         {
-            Output(start_address, 4, mem, "bit %u,(%s%+d)",
-                                                y, ixiy, (int)offset);
+            Output(start_address, 4, mem, "bit %u,(%s%+d)", y, ixiy, offset);
         }
 
         if (x == 2)
@@ -546,12 +549,12 @@ static void DecodeCBByte(word x, word y, word z, word p, word q,
             if (z == 6)
             {
                 Output(start_address, 4, mem, "res %u,(%s%+d)",
-                                            y, ixiy, (int)offset);
+                                            y, ixiy, offset);
             }
             else
             {
                 Output(start_address, 4, mem, "res %u,(%s%+d),%s",
-                                            y, ixiy, (int)offset, r[z]);
+                                            y, ixiy, offset, r[z]);
             }
         }
 
@@ -560,12 +563,12 @@ static void DecodeCBByte(word x, word y, word z, word p, word q,
             if (z == 6)
             {
                 Output(start_address, 4, mem, "set %u,(%s%+d)",
-                                            y, ixiy, (int)offset);
+                                            y, ixiy, offset);
             }
             else
             {
                 Output(start_address, 4, mem, "set %u,(%s%+d),%s",
-                                            y, ixiy, (int)offset, r[z]);
+                                            y, ixiy, offset, r[z]);
             }
         }
     }
@@ -587,7 +590,7 @@ static void DecodeEDByte(word x, word y, word z, word p, word q,
         {
             if (y == 6)
             {
-                Output(start_address, 4, mem, "in (c)");
+                Output(start_address, 4, mem, "in f,(c)");
             }
             else
             {
@@ -599,11 +602,11 @@ static void DecodeEDByte(word x, word y, word z, word p, word q,
         {
             if (y == 6)
             {
-                Output(start_address, 4, mem, "out (c)");
+                Output(start_address, 4, mem, "out (c),0");
             }
             else
             {
-                Output(start_address, 4, mem, "out %s,(c)", r[y]);
+                Output(start_address, 4, mem, "out (c),%s", r[y]);
             }
         }
 
@@ -628,7 +631,7 @@ static void DecodeEDByte(word x, word y, word z, word p, word q,
             }
             else
             {
-                Output(start_address, 4, mem, "ld $s,($%4.4x)",
+                Output(start_address, 4, mem, "ld %s,($%4.4x)",
                             rp[p], GetLSBWord(input, address, mem));
             }
         }
@@ -703,25 +706,25 @@ get_opcode:
 
     /* Loop through for shifts
     */
-    if (opcode == 0xcb)
+    if (opcode == 0xcb && (!cb_shift && !ed_shift))
     {
         cb_shift = 1;
         goto get_opcode;
     }
 
-    if (opcode == 0xed)
+    if (opcode == 0xed && (!cb_shift && !ed_shift))
     {
         ed_shift = 1;
         goto get_opcode;
     }
 
-    if (opcode == 0xdd)
+    if (opcode == 0xdd && (!cb_shift && !ed_shift))
     {
         ixy_shift = eIX;
         goto get_opcode;
     }
 
-    if (opcode == 0xfd)
+    if (opcode == 0xfd && (!cb_shift && !ed_shift))
     {
         ixy_shift = eIY;
         goto get_opcode;
