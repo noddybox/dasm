@@ -33,6 +33,7 @@
 /* ---------------------------------------- PROCESSORS
 */
 #include "z80.h"
+#include "6502.h"
 
 
 /* ---------------------------------------- MACROS
@@ -72,6 +73,11 @@ static const CPU cpu_table[]=
     {
         "Z80",
         Z80_Disassemble,
+    },
+
+    {
+        "6502",
+        C6502_Disassemble,
     },
 
     {NULL}

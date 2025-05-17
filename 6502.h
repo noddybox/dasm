@@ -19,17 +19,17 @@
 
     -------------------------------------------------------------------------
 
-    Z80 disassembly
+    6502 disassembly
 
 */
 
-#ifndef DASM_Z80_H
-#define DASM_Z80_H
+#ifndef DASM_6502_H
+#define DASM_6502_H
 
 #include <stdio.h>
 #include "global.h"
 
-word Z80_Disassemble(FILE *input, word address);
+word C6502_Disassemble(FILE *input, word address);
 
 #endif
 

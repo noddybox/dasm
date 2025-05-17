@@ -27,13 +27,15 @@ SOURCE	=	dasm.c		\
 		output.c	\
 		input.c		\
 		memory.c	\
-		z80.c
+		z80.c		\
+		6502.c
 
 OBJECTS	=	dasm.o		\
 		output.o	\
 		input.o		\
 		memory.o	\
-		z80.o
+		z80.o		\
+		6502.o
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(CLAGS) -o $(TARGET) $(OBJECTS)
@@ -41,7 +43,8 @@ $(TARGET): $(OBJECTS)
 clean:
 	rm -f $(TARGET) $(TARGET).exe $(OBJECTS) core *.core
 
-dasm.o: dasm.c global.h output.h memory.h z80.h
+6502.o: 6502.c 6502.h global.h output.h memory.h input.h
+dasm.o: dasm.c global.h output.h memory.h z80.h 6502.h
 input.o: input.c input.h global.h memory.h
 memory.o: memory.c memory.h global.h
 output.o: output.c output.h global.h memory.h
