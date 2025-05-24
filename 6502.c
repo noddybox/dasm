@@ -34,7 +34,7 @@
 
 typedef enum
 {
-    eImplicit,
+    eImplied,
     eByte,
     eWord,
     eRelative
@@ -48,6 +48,39 @@ typedef struct
 
 static opcode_t optable[256] =
 {
+    {/* 00 */   "brk",                  eImplied},
+    {/* 01 */   "bpl $%4.4x",           eRelative},
+    {/* 02 */   "jsr $%4.4x",           eWord},
+    {/* 03 */   "bmi $%4.4x",           eRelative},
+    {/* 04 */   "rti",                  eImplied},
+    {/* 05 */   "bvc $%4.4x",           eRelative},
+    {/* 06 */   "rts",                  eImplied},
+    {/* 07 */   "bvs $%4.4x",           eRelative},
+    {/* 08 */   "nop #$%2.2x",          eByte},
+    {/* 09 */   "bcc $%4.4x",           eRelative},
+    {/* 0a */   "ldy #$%2.2x",          eByte},
+    {/* 0b */   "bcs $%4.4x",           eRelative},
+    {/* 0c */   "cpy #$%2.2x",          eByte},
+    {/* 0d */   "bne $%4.4x",           eRelative},
+    {/* 0e */   "cpx #$%2.2x",          eByte},
+    {/* 0f */   "beq $%4.4x",           eRelative},
+
+    {/* 10 */   "ora ($%2.2x,x)",       eByte},
+    {/* 11 */   "ora ($%2.2x),y",       eByte},
+    {/* 12 */   "and ($%2.2x,x)",       eByte},
+    {/* 13 */   "and ($%2.2x),y",       eByte},
+    {/* 14 */   "eor ($%2.2x,x)",       eByte},
+    {/* 15 */   "eor ($%2.2x),y",       eByte},
+    {/* 16 */   "adc ($%2.2x,x)",       eByte},
+    {/* 17 */   "adc ($%2.2x),y",       eByte},
+    {/* 18 */   "sta ($%2.2x,x)",       eByte},
+    {/* 19 */   "sta ($%2.2x),y",       eByte},
+    {/* 1a */   "lda ($%2.2x,x)",       eByte},
+    {/* 1b */   "lda ($%2.2x),y",       eByte},
+    {/* 1c */   "cmp ($%2.2x,x)",       eByte},
+    {/* 1d */   "cmp ($%2.2x),y",       eByte},
+    {/* 1e */   "sbc ($%2.2x,x)",       eByte},
+    {/* 1f */   "sbc ($%2.2x),y",       eByte},
 };
 
 word C6502_Disassemble(FILE *input, word address)
@@ -71,7 +104,7 @@ word C6502_Disassemble(FILE *input, word address)
 
     switch(op->argtype)
     {
-        case eImplicit:
+        case eImplied:
             Output(start_address, 4, &mem, op->text);
             break;
 
