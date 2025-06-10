@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
 
     if (f < argc)
     {
-        fp = fopen(argv[f], "r");
+        fp = fopen(argv[f], "rb");
     }
 
     if (!fp || !cpu)
